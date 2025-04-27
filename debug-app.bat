@@ -1,0 +1,16 @@
+@echo off
+echo 正在构建并启动应用...
+
+echo 检查electron/remote模块...
+npm list @electron/remote || npm install @electron/remote
+
+echo 清理dist目录...
+if exist dist rmdir /s /q dist
+
+echo 使用webpack构建项目...
+npx webpack --config webpack.config.js
+
+echo 启动应用...
+npx electron . --trace-warnings
+
+pause
