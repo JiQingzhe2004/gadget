@@ -12,16 +12,17 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 960,
-    height: 720,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1200,
+    height: 800,
+    minWidth: 960,
+    minHeight: 720,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true
     },
-    icon: path.join(__dirname, 'assets/icons/app-icon.png')
+    icon: path.join(__dirname, 'assets/icons/app-icon.png'),
+    autoHideMenuBar: true  // 自动隐藏菜单栏
   });
   
   // 为窗口启用remote模块
@@ -31,7 +32,7 @@ function createWindow() {
   if (isDev) {
     // 直接加载webpack编译的文件，确保webpack编译过文件
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
-    mainWindow.webContents.openDevTools(); // 打开开发者工具以便调试
+    // mainWindow.webContents.openDevTools(); // 注释掉这行，不自动打开开发者工具
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
@@ -63,6 +64,10 @@ ipcMain.handle('check-file-occupancy', async (event, filePath) => {
     // 这里使用更优化的PowerShell命令，使用Windows API的方式捕获文件句柄
     const command = `powershell.exe`;
     const script = `
+      # 设置PowerShell编码为UTF-8
+      [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+      $OutputEncoding = [System.Text.Encoding]::UTF8
+      
       $ErrorActionPreference = "Stop"
       try {
         Add-Type -TypeDefinition @"
@@ -136,31 +141,36 @@ ipcMain.handle('check-file-occupancy', async (event, filePath) => {
           $_.Modules.FileName -like "*$path*"
         } | Select-Object Id, ProcessName, Path
         
-        ConvertTo-Json -InputObject $processes
+        # 移除了不兼容的-Encoding参数
+        ConvertTo-Json -InputObject $processes -Depth 3
       } catch {
         Write-Error "An error occurred: $_"
         exit 1
       }
     `;
     
-    const ps = spawn(command, ['-NoProfile', '-Command', script]);
+    const ps = spawn(command, ['-NoProfile', '-Command', script], {
+      encoding: 'utf8',
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+    });
+    
     let stdout = '';
     let stderr = '';
 
     ps.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf8');
     });
 
     ps.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf8');
     });
 
     ps.on('close', (code) => {
       if (code !== 0) {
         // 如果高级方法失败，回退到更基本的方法
-        const fallbackCmd = `powershell.exe -NoProfile -Command "Get-Process | Where-Object {$_.Modules.FileName -like '*${filePath}*'} | Select-Object Id, ProcessName, Path | ConvertTo-Json"`;
+        const fallbackCmd = `powershell.exe -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF-8; $OutputEncoding = [System.Text.Encoding]::UTF-8; Get-Process | Where-Object {$_.Modules.FileName -like '*${filePath}*'} | Select-Object Id, ProcessName, Path | ConvertTo-Json -Depth 3"`;
         
-        exec(fallbackCmd, (error, stdout, stderr) => {
+        exec(fallbackCmd, { encoding: 'utf8' }, (error, stdout, stderr) => {
           if (error) {
             reject(`检查失败: ${error.message}`);
             return;

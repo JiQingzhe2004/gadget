@@ -27,7 +27,7 @@ const App = () => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ minHeight: '100vh', height: '100vh', overflow: 'hidden' }}>
       <Sidebar 
         currentTool={currentTool} 
         onToolSelect={setCurrentTool}
@@ -35,14 +35,17 @@ const App = () => {
         toggleCollapsed={toggleCollapsed}
       />
       <Layout>
-        <Content style={{ margin: '16px' }}>
+        <Content style={{ margin: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div 
             style={{ 
               padding: 24, 
-              minHeight: 360, 
+              flex: 1,
               background: colorBgContainer, 
               borderRadius: borderRadiusLG,
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              display: 'flex', 
+              flexDirection: 'column',
+              overflow: 'hidden'
             }}
           >
             {renderTool()}

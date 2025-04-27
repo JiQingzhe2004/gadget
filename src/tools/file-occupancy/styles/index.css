@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow: hidden;
 }
 
 .tool-header-card {
@@ -13,7 +14,7 @@
 }
 
 .file-selector-card {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
 }
@@ -25,12 +26,50 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-.process-list-card .ant-card-body {
+/* 保证Spin组件占满可用空间 */
+.process-list-card .ant-spin-nested-loading {
+  height: 100%;
   flex: 1;
-  overflow: auto;
-  padding-top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.process-list-card .ant-spin-container {
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 保证表格容器可以滚动 */
+.table-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 400px;
+  max-height: 100%;
+}
+
+/* 确保表格组件正确显示 */
+.process-table {
+  width: 100%;
+}
+
+.process-table .ant-table-container {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* 处理表格滚动 */
+.ant-table-body {
+  overflow-y: auto !important;
+  max-height: 100% !important;
+}
+
+/* 确保表格行正确显示 */
+.ant-table-row {
+  width: 100%;
 }
 
 /* 使用百分比布局 */
