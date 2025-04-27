@@ -117,35 +117,41 @@ const ProcessList = ({ processes, selectedPath, loading, onProcessKilled }) => {
         )
       }
       className="process-list-card"
+      style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
+      bodyStyle={{ flex: 1, padding: '8px 24px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
     >
-      <Spin spinning={loading} tip="正在检测文件占用...">
-        {processes.length > 0 ? (
-          <Table
-            columns={columns}
-            dataSource={processes}
-            rowKey="Id"
-            pagination={
-              processes.length > 10 ? 
-              { pageSize: 10, showSizeChanger: true, showTotal: (total) => `共 ${total} 个进程` } : 
-              false
-            }
-            scroll={{ y: 400 }}
-            size="middle"
-          />
-        ) : (
-          <Empty 
-            description={
-              <Text type="secondary">
-                {selectedPath ? 
-                  "没有找到占用该文件/文件夹的进程" : 
-                  "请先选择文件或文件夹并检查占用"
-                }
-              </Text>
-            }
-            style={{ margin: '60px 0' }}
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        )}
+      <Spin spinning={loading} tip="正在检测文件占用..." style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="table-container" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {processes.length > 0 ? (
+            <Table
+              columns={columns}
+              dataSource={processes}
+              rowKey="Id"
+              pagination={
+                processes.length > 10 ? 
+                { pageSize: 10, showSizeChanger: true, showTotal: (total) => `共 ${total} 个进程` } : 
+                false
+              }
+              scroll={{ x: 'max-content' }}
+              size="middle"
+              style={{ flex: 1 }}
+              className="process-table"
+            />
+          ) : (
+            <Empty 
+              description={
+                <Text type="secondary">
+                  {selectedPath ? 
+                    "没有找到占用该文件/文件夹的进程" : 
+                    "请先选择文件或文件夹并检查占用"
+                  }
+                </Text>
+              }
+              style={{ margin: '60px 0' }}
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          )}
+        </div>
       </Spin>
     </Card>
   );
