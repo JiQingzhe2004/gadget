@@ -1,10 +1,16 @@
 import React from 'react';
-import { Layout, Menu } from 'antd';
-import { FileSearchOutlined, ToolOutlined } from '@ant-design/icons';
+import { Layout, Menu, Typography } from 'antd';
+import { 
+  FileSearchOutlined, 
+  AppstoreOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined
+} from '@ant-design/icons';
 
 const { Sider } = Layout;
+const { Title } = Typography;
 
-const Sidebar = ({ currentTool, onToolSelect }) => {
+const Sidebar = ({ currentTool, onToolSelect, collapsed, toggleCollapsed }) => {
   const items = [
     {
       key: 'file-occupancy',
@@ -15,10 +21,38 @@ const Sidebar = ({ currentTool, onToolSelect }) => {
   ];
 
   return (
-    <Sider width="20%" style={{ background: '#001529' }}>
-      <div className="logo" style={{ height: '64px', margin: '16px', background: 'rgba(255, 255, 255, 0.2)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <ToolOutlined style={{ fontSize: '24px', color: 'white' }} />
-        <span style={{ color: 'white', marginLeft: '8px', fontSize: '18px' }}>文件工具集</span>
+    <Sider 
+      width={200} 
+      collapsible 
+      collapsed={collapsed} 
+      trigger={null}
+      style={{ background: '#001529' }}
+    >
+      <div className="logo" style={{ 
+        height: '64px', 
+        margin: '16px', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center' 
+      }}>
+        <AppstoreOutlined style={{ fontSize: '24px', color: 'white' }} />
+        {!collapsed && (
+          <Title level={4} style={{ color: 'white', marginLeft: '8px', marginBottom: 0 }}>
+            文件工具集
+          </Title>
+        )}
+      </div>
+      <div className="sidebar-toggle" 
+        onClick={toggleCollapsed} 
+        style={{ 
+          padding: '0 16px', 
+          marginBottom: '16px', 
+          textAlign: 'right', 
+          color: 'white',
+          cursor: 'pointer'
+        }}
+      >
+        {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
       </div>
       <Menu
         theme="dark"

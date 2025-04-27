@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Typography, Divider } from 'antd';
+import { Typography, Divider, Card } from 'antd';
+import { FileSearchOutlined } from '@ant-design/icons';
 import FileSelector from './components/FileSelector';
 import ProcessList from './components/ProcessList';
 import './styles/index.css';
@@ -23,10 +24,24 @@ const FileOccupancyTool = () => {
     setLoading(isLoading);
   };
 
+  const handleProcessKilled = () => {
+    // 当进程被杀死后，重新检查文件占用
+    if (selectedPath) {
+      const fileSelector = document.querySelector('button.check-button');
+      if (fileSelector) {
+        fileSelector.click();
+      }
+    }
+  };
+
   return (
     <div className="file-occupancy-tool">
-      <Title level={2}>文件占用检测工具</Title>
-      <Divider />
+      <Card className="tool-header-card">
+        <Title level={2} style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+          <FileSearchOutlined style={{ marginRight: '12px' }} />
+          文件占用检测工具
+        </Title>
+      </Card>
       
       <FileSelector 
         onPathSelected={handlePathSelected} 
@@ -34,21 +49,11 @@ const FileOccupancyTool = () => {
         onLoadingChange={handleLoadingChange}
       />
       
-      <Divider />
-      
       <ProcessList 
         processes={processes} 
         selectedPath={selectedPath}
         loading={loading}
-        onProcessKilled={() => {
-          // 当进程被杀死后，重新检查文件占用
-          if (selectedPath) {
-            const fileSelector = document.querySelector('button.check-button');
-            if (fileSelector) {
-              fileSelector.click();
-            }
-          }
-        }}
+        onProcessKilled={handleProcessKilled}
       />
     </div>
   );

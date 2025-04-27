@@ -7,10 +7,15 @@ const { Content } = Layout;
 
 const App = () => {
   const [currentTool, setCurrentTool] = useState('file-occupancy');
+  const [collapsed, setCollapsed] = useState(false);
   
   const {
-    token: { colorBgContainer },
+    token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+
+  const toggleCollapsed = () => {
+    setCollapsed(!collapsed);
+  };
 
   const renderTool = () => {
     switch (currentTool) {
@@ -23,10 +28,23 @@ const App = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sidebar currentTool={currentTool} onToolSelect={setCurrentTool} />
+      <Sidebar 
+        currentTool={currentTool} 
+        onToolSelect={setCurrentTool}
+        collapsed={collapsed}
+        toggleCollapsed={toggleCollapsed}
+      />
       <Layout>
         <Content style={{ margin: '16px' }}>
-          <div style={{ padding: 24, minHeight: 360, background: colorBgContainer, borderRadius: '8px' }}>
+          <div 
+            style={{ 
+              padding: 24, 
+              minHeight: 360, 
+              background: colorBgContainer, 
+              borderRadius: borderRadiusLG,
+              transition: 'all 0.2s'
+            }}
+          >
             {renderTool()}
           </div>
         </Content>

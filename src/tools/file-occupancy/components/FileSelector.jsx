@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
-import { Input, Button, Card, message, Space, Radio } from 'antd';
-import { FileSearchOutlined, FolderOpenOutlined, SearchOutlined } from '@ant-design/icons';
+import { Input, Button, Card, message, Space, Radio, Tooltip } from 'antd';
+import { 
+  FileSearchOutlined, 
+  FolderOpenOutlined, 
+  SearchOutlined,
+  LoadingOutlined
+} from '@ant-design/icons';
 import { checkFileOccupancy } from '../utils/fileUtils';
 import showNotification from '../../../renderer/utils/notification';
 
@@ -12,6 +17,7 @@ const { dialog } = remote;
 const FileSelector = ({ onPathSelected, onProcessFound, onLoadingChange }) => {
   const [filePath, setFilePath] = useState('');
   const [searchType, setSearchType] = useState('file');
+  const [isSearching, setIsSearching] = useState(false);
 
   const handleBrowse = async () => {
     try {
@@ -27,23 +33,28 @@ const FileSelector = ({ onPathSelected, onProcessFound, onLoadingChange }) => {
       });
       
       if (!result.canceled && result.filePaths.length > 0) {
-        setFilePath(result.filePaths[0]);
-        onPathSelected(result.filePaths[0]);
+        const selectedPath = result.filePaths[0];
+        setFilePath(selectedPath);
+        onPathSelected(selectedPath);
+        
+        // 自动检查占用
+        handleCheck(selectedPath);
       }
     } catch (error) {
       message.error(`选择路径失败: ${error.message}`);
     }
   };
 
-  const handleCheck = async () => {
-    if (!filePath) {
+  const handleCheck = async (path = filePath) => {
+    if (!path) {
       message.warning('请先选择文件或文件夹');
       return;
     }
 
     try {
+      setIsSearching(true);
       onLoadingChange(true);
-      const processes = await checkFileOccupancy(filePath);
+      const processes = await checkFileOccupancy(path);
       onProcessFound(processes);
       
       if (processes.length === 0) {
@@ -55,22 +66,37 @@ const FileSelector = ({ onPathSelected, onProcessFound, onLoadingChange }) => {
     } catch (error) {
       message.error(`检查失败: ${error.message}`);
     } finally {
+      setIsSearching(false);
       onLoadingChange(false);
     }
   };
 
   return (
-    <Card title="选择文件或文件夹" className="file-selector-card">
+    <Card 
+      title={
+        <Space>
+          {searchType === 'file' ? <FileSearchOutlined /> : <FolderOpenOutlined />}
+          <span>选择{searchType === 'file' ? '文件' : '文件夹'}</span>
+        </Space>
+      }
+      className="file-selector-card"
+      bodyStyle={{ paddingBottom: '8px' }}
+    >
       <Radio.Group 
         value={searchType} 
         onChange={e => setSearchType(e.target.value)}
         style={{ marginBottom: '16px' }}
+        buttonStyle="solid"
       >
-        <Radio.Button value="file">文件</Radio.Button>
-        <Radio.Button value="folder">文件夹</Radio.Button>
+        <Radio.Button value="file">
+          <FileSearchOutlined /> 文件
+        </Radio.Button>
+        <Radio.Button value="folder">
+          <FolderOpenOutlined /> 文件夹
+        </Radio.Button>
       </Radio.Group>
       
-      <Space style={{ width: '100%' }}>
+      <Input.Group compact style={{ width: '100%', display: 'flex' }}>
         <Input 
           placeholder={`请选择${searchType === 'file' ? '文件' : '文件夹'}路径`}
           value={filePath}
@@ -78,21 +104,26 @@ const FileSelector = ({ onPathSelected, onProcessFound, onLoadingChange }) => {
             setFilePath(e.target.value);
             onPathSelected(e.target.value);
           }}
-          prefix={searchType === 'file' ? <FileSearchOutlined /> : <FolderOpenOutlined />}
-          style={{ width: '70%' }}
+          style={{ flex: 1 }}
+          allowClear
         />
-        <Button type="primary" onClick={handleBrowse}>
-          浏览
-        </Button>
-        <Button 
-          type="primary" 
-          onClick={handleCheck}
-          className="check-button"
-          icon={<SearchOutlined />}
-        >
-          检查占用
-        </Button>
-      </Space>
+        <Tooltip title="浏览">
+          <Button onClick={handleBrowse}>
+            浏览
+          </Button>
+        </Tooltip>
+        <Tooltip title="检查占用">
+          <Button 
+            type="primary" 
+            onClick={() => handleCheck()}
+            className="check-button"
+            icon={isSearching ? <LoadingOutlined /> : <SearchOutlined />}
+            disabled={isSearching}
+          >
+            检查占用
+          </Button>
+        </Tooltip>
+      </Input.Group>
     </Card>
   );
 };

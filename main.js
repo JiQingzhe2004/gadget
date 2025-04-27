@@ -1,8 +1,9 @@
 const { app, BrowserWindow, ipcMain, shell, Notification } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const { initialize, enable } = require('@electron/remote/main');
+const fs = require('fs');
 
 // 初始化remote模块
 initialize();
@@ -54,17 +55,95 @@ app.on('activate', () => {
   }
 });
 
-// 检查文件占用情况
+// 检查文件占用情况 - 使用更高效的方式
 ipcMain.handle('check-file-occupancy', async (event, filePath) => {
   return new Promise((resolve, reject) => {
+    // 使用handle.exe工具检查文件占用
+    // handle.exe是Windows Sysinternals工具，性能比PowerShell更高
+    // 这里使用更优化的PowerShell命令，使用Windows API的方式捕获文件句柄
     const command = `powershell.exe`;
-    const args = [
-      '-NoProfile', 
-      '-Command', 
-      `Get-Process | Where-Object {$_.Modules.FileName -like '*${filePath}*'} | Select-Object Id, ProcessName, Path | ConvertTo-Json`
-    ];
+    const script = `
+      $ErrorActionPreference = "Stop"
+      try {
+        Add-Type -TypeDefinition @"
+        using System;
+        using System.Collections.Generic;
+        using System.Runtime.InteropServices;
+        using System.Text;
+        using System.IO;
+
+        public class FileUtil {
+            [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+            public static extern IntPtr CreateFile(
+                string lpFileName,
+                uint dwDesiredAccess,
+                uint dwShareMode,
+                IntPtr lpSecurityAttributes,
+                uint dwCreationDisposition,
+                uint dwFlagsAndAttributes,
+                IntPtr hTemplateFile);
+
+            public static bool IsFileInUse(string filePath) {
+                IntPtr handle = CreateFile(
+                    filePath,
+                    0x80000000, // GENERIC_READ
+                    0,          // No sharing
+                    IntPtr.Zero,
+                    3,          // OPEN_EXISTING
+                    0,
+                    IntPtr.Zero);
+
+                bool inUse = handle.ToInt64() == -1;
+                if (!inUse) {
+                    Marshal.CloseHandle(handle);
+                }
+                return inUse;
+            }
+        }
+"@
+
+        $path = "${filePath}"
+        $isDirectory = Test-Path -Path $path -PathType Container
+        
+        if ($isDirectory) {
+          # 检查目录中的文件
+          $processes = Get-Process | Where-Object { $_.Modules.FileName -like "*$path*" } | Select-Object Id, ProcessName, Path
+        } else {
+          # 检查特定文件
+          $isLocked = [FileUtil]::IsFileInUse($path)
+          
+          if ($isLocked) {
+            # 获取占用该文件的进程信息
+            $processes = Get-Process | Where-Object { 
+              $proc = $_
+              foreach ($module in $proc.Modules) {
+                if ($module.FileName -eq $path) { return $true }
+              }
+              
+              # 检查打开的文件句柄
+              $handles = & "handle.exe" -p $proc.Id $path 2>&1
+              if ($handles -match [regex]::Escape($path)) { return $true }
+              
+              return $false
+            } | Select-Object Id, ProcessName, Path
+          } else {
+            $processes = @()
+          }
+        }
+        
+        # 如果handle.exe不可用，则使用常规的模块检查
+        $processes = Get-Process | Where-Object {
+          $_.Modules.FileName -like "*$path*"
+        } | Select-Object Id, ProcessName, Path
+        
+        ConvertTo-Json -InputObject $processes
+      } catch {
+        Write-Error "An error occurred: $_"
+        exit 1
+      }
+    `;
     
-    const ps = spawn(command, args);
+    const ps = spawn(command, ['-NoProfile', '-Command', script]);
     let stdout = '';
     let stderr = '';
 
@@ -78,7 +157,24 @@ ipcMain.handle('check-file-occupancy', async (event, filePath) => {
 
     ps.on('close', (code) => {
       if (code !== 0) {
-        reject(stderr);
+        // 如果高级方法失败，回退到更基本的方法
+        const fallbackCmd = `powershell.exe -NoProfile -Command "Get-Process | Where-Object {$_.Modules.FileName -like '*${filePath}*'} | Select-Object Id, ProcessName, Path | ConvertTo-Json"`;
+        
+        exec(fallbackCmd, (error, stdout, stderr) => {
+          if (error) {
+            reject(`检查失败: ${error.message}`);
+            return;
+          }
+          
+          try {
+            const data = stdout.trim();
+            const processes = data ? JSON.parse(data) : [];
+            // 确保返回数组，即使只有一个结果
+            resolve(Array.isArray(processes) ? processes : [processes]);
+          } catch (parseError) {
+            reject(`解析失败: ${parseError.message}`);
+          }
+        });
       } else {
         try {
           const data = stdout.trim();
@@ -93,22 +189,24 @@ ipcMain.handle('check-file-occupancy', async (event, filePath) => {
   });
 });
 
-// 结束进程
+// 结束进程 - 使用更高效的方式
 ipcMain.handle('kill-process', async (event, processId) => {
   return new Promise((resolve, reject) => {
-    const command = `powershell.exe`;
-    const args = ['-NoProfile', '-Command', `Stop-Process -Id ${processId} -Force`];
+    // 在Windows上，使用taskkill命令更可靠且速度更快
+    const command = `taskkill /F /PID ${processId}`;
     
-    const ps = spawn(command, args);
-    let stderr = '';
-
-    ps.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    ps.on('close', (code) => {
-      if (code !== 0) {
-        reject(stderr);
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        // 如果taskkill失败，尝试使用PowerShell
+        const psCommand = `powershell.exe -NoProfile -Command "Stop-Process -Id ${processId} -Force -ErrorAction SilentlyContinue"`;
+        
+        exec(psCommand, (psError, psStdout, psStderr) => {
+          if (psError) {
+            reject(`无法结束进程: ${psError.message}`);
+          } else {
+            resolve(true);
+          }
+        });
       } else {
         resolve(true);
       }
